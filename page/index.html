@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>F1 Next Race Information</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <header class="text-center mb-12">
+            <h1 class="text-4xl font-bold text-gray-800" id="raceName">Loading...</h1>
+            <p class="text-xl text-gray-600 mt-2" id="circuitName"></p>
+            <p class="text-lg text-gray-500" id="country"></p>
+        </header>
+
+        <!-- Main Race Section -->
+        <div class="bg-red-600 text-white rounded-lg p-6 shadow-lg mb-8 text-center">
+            <h2 class="text-3xl font-bold mb-4">Main Race</h2>
+            <div id="mainRaceContainer">
+                <div id="mainRaceCountdown" class="grid grid-cols-4 gap-4 text-center mb-4">
+                    <div class="bg-red-700 rounded p-3">
+                        <span id="mainRaceDays" class="text-3xl font-bold block">--</span>
+                        <span class="text-sm">Days</span>
+                    </div>
+                    <div class="bg-red-700 rounded p-3">
+                        <span id="mainRaceHours" class="text-3xl font-bold block">--</span>
+                        <span class="text-sm">Hours</span>
+                    </div>
+                    <div class="bg-red-700 rounded p-3">
+                        <span id="mainRaceMinutes" class="text-3xl font-bold block">--</span>
+                        <span class="text-sm">Minutes</span>
+                    </div>
+                    <div class="bg-red-700 rounded p-3">
+                        <span id="mainRaceSeconds" class="text-3xl font-bold block">--</span>
+                        <span class="text-sm">Seconds</span>
+                    </div>
+                </div>
+                <div id="mainRaceCompleted" class="hidden">
+                    <div class="bg-green-500 rounded-full w-16 h-16 mx-auto flex items-center justify-center">
+                        <i class="fas fa-check text-white text-3xl"></i>
+                    </div>
+                    <p class="text-white mt-2">Race Completed</p>
+                </div>
+            </div>
+            <p class="text-lg opacity-90">Round <span id="round"></span></p>
+        </div>
+
+        <!-- Sessions Grid -->
+        <div id="sessionsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <!-- Session boxes will be populated by JavaScript -->
+        </div>
+    </div>
+
+    <script>
+        function updateCountdown(targetDate, elementPrefix) {
+            const now = new Date().getTime();
+            const target = new Date(targetDate + "Z").getTime();
+            const distance = target - now;
+
+            const countdownElement = document.getElementById(elementPrefix + 'Countdown');
+            const completedElement = document.getElementById(elementPrefix + 'Completed');
+
+            if (distance < 0) {
+                // Session has passed
+                if (countdownElement) countdownElement.classList.add('hidden');
+                if (completedElement) completedElement.classList.remove('hidden');
+                return false;
+            } else {
+                // Session is upcoming
+                if (countdownElement) countdownElement.classList.remove('hidden');
+                if (completedElement) completedElement.classList.add('hidden');
+
+                const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+                document.getElementById(elementPrefix + 'Days').textContent = days;
+                document.getElementById(elementPrefix + 'Hours').textContent = hours;
+                document.getElementById(elementPrefix + 'Minutes').textContent = minutes;
+                document.getElementById(elementPrefix + 'Seconds').textContent = seconds;
+                return true;
+            }
+        }
+
+        function createCountdownElement(sessionName, date, index) {
+            const elementId = `session${index}`;
+            return `
+                <div class="bg-white rounded-lg p-6 shadow-md text-center">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-3">${sessionName}</h3>
+                    <div id="${elementId}Container">
+                        <div id="${elementId}Countdown" class="grid grid-cols-4 gap-2 text-center">
+                            <div class="bg-gray-100 rounded p-2">
+                                <span id="${elementId}Days" class="text-xl font-bold block text-black">--</span>
+                                <span class="text-xs text-black">Days</span>
+                            </div>
+                            <div class="bg-gray-100 rounded p-2">
+                                <span id="${elementId}Hours" class="text-xl font-bold block text-black">--</span>
+                                <span class="text-xs text-black">Hours</span>
+                            </div>
+                            <div class="bg-gray-100 rounded p-2">
+                                <span id="${elementId}Minutes" class="text-xl font-bold block text-black">--</span>
+                                <span class="text-xs text-black">Min</span>
+                            </div>
+                            <div class="bg-gray-100 rounded p-2">
+                                <span id="${elementId}Seconds" class="text-xl font-bold block text-black">--</span>
+                                <span class="text-xs text-black">Sec</span>
+                            </div>
+                        </div>
+                        <div id="${elementId}Completed" class="hidden mt-4">
+                            <div class="bg-green-500 rounded-full w-12 h-12 mx-auto flex items-center justify-center">
+                                <i class="fas fa-check text-white text-xl"></i>
+                            </div>
+                            <p class="text-green-500 mt-2">Session Complete</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function fetchRaceData() {
+            const CACHE_KEY = 'f1RaceData';
+            const CACHE_TIME_KEY = 'f1RaceDataTime';
+            const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in ms
+
+            let data = null;
+            let cacheTime = sessionStorage.getItem(CACHE_TIME_KEY);
+            let cached = sessionStorage.getItem(CACHE_KEY);
+            if (cached && cacheTime && (Date.now() - parseInt(cacheTime, 10) < CACHE_DURATION)) {
+                data = JSON.parse(cached);
+            } else {
+                try {
+                    const response = await fetch('https://f1esta-api.onrender.com/next-race/2025');
+                    data = await response.json();
+                    sessionStorage.setItem(CACHE_KEY, JSON.stringify(data));
+                    sessionStorage.setItem(CACHE_TIME_KEY, Date.now().toString());
+                } catch (error) {
+                    console.error('Error fetching race data:', error);
+                    document.getElementById('raceName').textContent = 'Error loading data';
+                    return;
+                }
+            }
+
+            // Update main race info
+            document.getElementById('raceName').textContent = data.race_name;
+            document.getElementById('circuitName').textContent = data.circuit_name;
+            document.getElementById('country').textContent = data.country;
+            document.getElementById('round').textContent = data.round;
+
+            // Create session boxes with countdowns
+            const sessionsGrid = document.getElementById('sessionsGrid');
+            sessionsGrid.innerHTML = '';
+            for (let i = 1; i <= 4; i++) {
+                const sessionName = data[`session${i}`];
+                const sessionDate = data[`session${i}DateUtc`];
+                sessionsGrid.innerHTML += createCountdownElement(sessionName, sessionDate, i);
+            }
+
+            // Start countdowns
+            setInterval(() => {
+                updateCountdown(data.race_date, 'mainRace');
+                for (let i = 1; i <= 4; i++) {
+                    updateCountdown(data[`session${i}DateUtc`], `session${i}`);
+                }
+            }, 1000);
+        }
+
+        // Fetch data when page loads
+        fetchRaceData();
+    </script>
+</body>
+</html>
