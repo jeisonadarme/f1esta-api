@@ -29,7 +29,7 @@ def get_next_race(year: int):
             "error": "No upcoming races found"
         })
     
-    # Format the response
+    # Format the response as JSON
     response = {
         "race_name": next_race['EventName'],
         "circuit_name": next_race['OfficialEventName'],
